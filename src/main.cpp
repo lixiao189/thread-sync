@@ -16,7 +16,7 @@ std::vector<std::thread> thread_pool;
 
 // sleep 函数
 void sleep(int sleep_time) {
-  std::chrono::milliseconds timespan(sleep_time); // or whatever
+  std::chrono::milliseconds timespan(sleep_time); 
   std::this_thread::sleep_for(timespan);
 }
 
