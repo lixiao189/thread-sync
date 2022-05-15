@@ -40,20 +40,17 @@ void acquire(atomic_int &mutex) {
 void exit(atomic_int &mutex) { dec_atomic_relaxed(mutex); }
 
 void producer(int id) {
-  printf("Producer %d is started!\n", id); // 输出线程 id
-
   acquire(rw_mutex);
+  printf("Producer %d is started!\n", id); // 输出线程 id
   // 临界区 确保只有一个生产者
   for (int i = 0; i < bufSiz; i++)
     buf[i]++;
 
   printf("Producer changed the data\n");
-  exit(rw_mutex);
-
   printf("Producer %d quitted!\n", id); // 输出线程 id
+  exit(rw_mutex);
 }
 void consumer(int id) {
-  printf("Consumer %d is started!\n", id); // 输出线程 id
   acquire(consumer_counter_mutex);
   // 保护 consumer_counter 的临界区
   consumer_counter++;
@@ -63,6 +60,7 @@ void consumer(int id) {
   }
   exit(consumer_counter_mutex);
 
+  printf("Consumer %d is started!\n", id); // 输出线程 id
   // 输出内容
   acquire(output_mutex);
   // 阻止对缓冲区的并发输出
@@ -70,7 +68,9 @@ void consumer(int id) {
     printf("%d ", data);
   }
   printf("\n");
+  sleep(200);
   exit(output_mutex);
+  printf("Consumer %d quitted!\n", id); // 输出线程 id
 
   acquire(consumer_counter_mutex);
   // 保护 consumer_counter 的临界区
@@ -80,22 +80,45 @@ void consumer(int id) {
     exit(rw_mutex);
   }
   exit(consumer_counter_mutex);
-  printf("Consumer %d quitted!\n", id); // 输出线程 id
 }
 
 void start() {
-  for (int i = 0; i < 3; i++) {
-    std::thread producer_thread(producer, i);
-    thread_pool.push_back(std::move(producer_thread));
-  }
-  for (int i = 0; i < 8; i++) {
-    std::thread consumer_thread(consumer, i);
-    thread_pool.push_back(std::move(consumer_thread));
-  }
+  std::thread create_producer([]() {
+    for (int i = 0; i < 3; i++) {
+      std::thread producer_thread(producer, i);
+      thread_pool.push_back(std::move(producer_thread));
+      sleep(500);
+    }
+  });
 
+  std::thread create_consumer([]() {
+    for (int i = 0; i < 4; i++) {
+      std::thread consumer_thread(consumer, i);
+      thread_pool.push_back(std::move(consumer_thread));
+      sleep(100);
+    }
+  });
+  sleep(1000);
+  std::thread create_consumer1([]() {
+    for (int i = 0; i < 4; i++) {
+      std::thread consumer_thread(consumer, 10 + i);
+      thread_pool.push_back(std::move(consumer_thread));
+      sleep(100);
+    }
+  });
+
+  create_producer.join();
+  create_consumer.join();
+  create_consumer1.join();
   for (auto &thread : thread_pool) {
     thread.join();
   }
+
+  puts("The final data is: ");
+  for (auto &data : buf) {
+    printf("%d ", data);
+  }
+  printf("\n");
 }
 
 int main() {
